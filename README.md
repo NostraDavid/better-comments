@@ -17,3 +17,5 @@ See [the beginner guide](docs/getting-started.md), [contribution guide](CONTRIBU
 Install Nix, enter `nix develop`, then run `just setup` and `just check`. Run `just package` to build a VSIX. The flake supports x86_64/aarch64 Linux and macOS, including Intel macOS through the pinned Nixpkgs revision.
 
 Dependency upgrades are explicit: `just lock-upgrade` and `just update-nix`. Normal setup uses the committed locks.
+
+Tag and color changes apply immediately to all visible editors. Closing an editor or disabling the extension clears its decorations and pending updates.

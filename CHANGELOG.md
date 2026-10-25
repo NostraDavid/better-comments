@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-10-25
+
+- Apply tag, color and comment-setting changes immediately in every visible editor.
+- Keep parser state per editor and discard stale asynchronous updates.
+- Dispose obsolete decoration types and pending updates when editors or the extension close.
+- Refresh language definitions without retaining removed extension configurations.
+
 ## [1.0.3] - 2026-10-25
 
 - Highlight genuine comments on the first line of Python, Elixir and Tcl files.

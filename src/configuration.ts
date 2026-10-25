@@ -19,6 +19,7 @@ export class Configuration {
    */
   public UpdateLanguagesDefinitions() {
     this.commentConfig.clear();
+    this.languageConfigFiles.clear();
 
     for (let extension of vscode.extensions.all) {
       let packageJSON = extension.packageJSON;

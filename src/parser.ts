@@ -36,6 +36,17 @@ export class Parser {
     this.setTags();
   }
 
+  public Dispose(): void {
+    for (const tag of this.tags) tag.decoration.dispose();
+    this.tags = [];
+  }
+
+  public ReloadConfiguration(document?: vscode.TextDocument): void {
+    this.Dispose();
+    this.contributions = vscode.workspace.getConfiguration('better-comments', document) as any;
+    this.setTags();
+  }
+
   /**
    * Sets the regex to be used by the matcher based on the config specified in the package.json
    * @param languageCode The short code of the current language

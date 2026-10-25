@@ -2,93 +2,99 @@ import * as vscode from 'vscode';
 import { Configuration } from './configuration';
 import { Parser } from './parser';
 
-// this method is called when vs code is activated
-export async function activate(context: vscode.ExtensionContext) {
-  let activeEditor: vscode.TextEditor;
+export function activate(context: vscode.ExtensionContext) {
+  const configuration = new Configuration();
+  const entries = new Map<vscode.TextEditor, {
+    parser: Parser;
+    revision: number;
+    timer?: ReturnType<typeof setTimeout>;
+  }>();
+  let disposed = false;
 
-  let configuration: Configuration = new Configuration();
-  let parser: Parser = new Parser(configuration);
-
-  // Called to handle events below
-  let updateDecorations = function() {
-    // if no active window is open, return
-    if (!activeEditor) return;
-
-    // if lanugage isn't supported, return
-    if (!parser.supportedLanguage) return;
-
-    // Finds the single line comments using the language comment delimiter
-    parser.FindSingleLineComments(activeEditor);
-
-    // Finds the multi line comments using the language comment delimiter
-    parser.FindBlockComments(activeEditor);
-
-    // Finds the jsdoc comments
-    parser.FindJSDocComments(activeEditor);
-
-    // Apply the styles set in the package.json
-    parser.ApplyDecorations(activeEditor);
-  };
-
-  // Get the active editor for the first time and initialise the regex
-  if (vscode.window.activeTextEditor) {
-    activeEditor = vscode.window.activeTextEditor;
-
-    // Set the regex patterns for the specified language's comments
-    await parser.SetRegex(activeEditor.document.languageId);
-
-    // Trigger first update of decorators
-    triggerUpdateDecorations();
+  function schedule(editor: vscode.TextEditor, reload = false) {
+    let entry = entries.get(editor);
+    if (!entry) {
+      entry = { parser: new Parser(configuration), revision: 0 };
+      entries.set(editor, entry);
+    }
+    if (reload) entry.parser.ReloadConfiguration(editor.document);
+    const current = entry;
+    const revision = ++current.revision;
+    clearTimeout(current.timer);
+    current.timer = setTimeout(async () => {
+      const document = editor.document;
+      const language = document.languageId;
+      await current.parser.SetRegex(language);
+      if (
+        disposed || revision !== current.revision || editor.document !== document
+        || editor.document.languageId !== language || !vscode.window.visibleTextEditors.includes(editor)
+      ) return;
+      if (current.parser.supportedLanguage) {
+        current.parser.FindSingleLineComments(editor);
+        current.parser.FindBlockComments(editor);
+        current.parser.FindJSDocComments(editor);
+      }
+      current.parser.ApplyDecorations(editor);
+    }, 100);
   }
 
-  // * Handle extensions being added or removed
+  function visibleChanged() {
+    for (const [editor, entry] of entries) {
+      if (!vscode.window.visibleTextEditors.includes(editor)) {
+        clearTimeout(entry.timer);
+        entry.revision++;
+        entry.parser.Dispose();
+        entries.delete(editor);
+      }
+    }
+    for (const editor of vscode.window.visibleTextEditors) schedule(editor);
+  }
+
+  vscode.window.onDidChangeVisibleTextEditors(visibleChanged, null, context.subscriptions);
+  vscode.window.onDidChangeActiveTextEditor(
+    editor => {
+      if (editor) schedule(editor);
+    },
+    null,
+    context.subscriptions,
+  );
+  vscode.workspace.onDidChangeTextDocument(
+    event => {
+      for (const editor of vscode.window.visibleTextEditors) {
+        if (editor.document === event.document) schedule(editor);
+      }
+    },
+    null,
+    context.subscriptions,
+  );
+  vscode.workspace.onDidChangeConfiguration(
+    event => {
+      for (const editor of vscode.window.visibleTextEditors) {
+        if (event.affectsConfiguration('better-comments', editor.document)) schedule(editor, true);
+      }
+    },
+    null,
+    context.subscriptions,
+  );
   vscode.extensions.onDidChange(
     () => {
       configuration.UpdateLanguagesDefinitions();
+      visibleChanged();
     },
     null,
     context.subscriptions,
   );
-
-  // * Handle active file changed
-  vscode.window.onDidChangeActiveTextEditor(
-    async editor => {
-      if (editor) {
-        activeEditor = editor;
-
-        // Set regex for updated language
-        await parser.SetRegex(editor.document.languageId);
-
-        // Trigger update to set decorations for newly active file
-        triggerUpdateDecorations();
+  context.subscriptions.push(
+    new vscode.Disposable(() => {
+      disposed = true;
+      for (const entry of entries.values()) {
+        clearTimeout(entry.timer);
+        entry.parser.Dispose();
       }
-    },
-    null,
-    context.subscriptions,
+      entries.clear();
+    }),
   );
-
-  // * Handle file contents changed
-  vscode.workspace.onDidChangeTextDocument(
-    event => {
-      // Trigger updates if the text was changed in the same document
-      if (activeEditor && event.document === activeEditor.document) {
-        triggerUpdateDecorations();
-      }
-    },
-    null,
-    context.subscriptions,
-  );
-
-  // * IMPORTANT:
-  // * To avoid calling update too often,
-  // * set a timer for 100ms to wait before updating decorations
-  var timeout: ReturnType<typeof setTimeout>;
-  function triggerUpdateDecorations() {
-    if (timeout) {
-      clearTimeout(timeout);
-    }
-    timeout = setTimeout(updateDecorations, 100);
-  }
+  visibleChanged();
 }
 
 export function deactivate() {}
