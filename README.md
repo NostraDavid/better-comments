@@ -19,3 +19,5 @@ Install Nix, enter `nix develop`, then run `just setup` and `just check`. Run `j
 Dependency upgrades are explicit: `just lock-upgrade` and `just update-nix`. Normal setup uses the committed locks.
 
 Tag and color changes apply immediately to all visible editors. Closing an editor or disabling the extension clears its decorations and pending updates.
+
+When tags overlap, the first longest matching tag chooses the style. Case-insensitive duplicate definitions retain the first configured style.

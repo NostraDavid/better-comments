@@ -8,7 +8,7 @@ const moduleUrl = new URL('../out/parser.js', import.meta.url);
 const require = createRequire(moduleUrl);
 const source = fs.readFileSync(moduleUrl, 'utf8');
 
-async function decorations(text, languageId = 'python', previousLanguages = [], settings = {}) {
+async function decorations(text, languageId = 'python', previousLanguages = [], settings = {}, captureColors = false) {
   const rendered = [];
   const vscode = {
     workspace: {
@@ -19,7 +19,7 @@ async function decorations(text, languageId = 'python', previousLanguages = [], 
         ...settings,
       }),
     },
-    window: { createTextEditorDecorationType: () => ({}), showWarningMessage: () => {} },
+    window: { createTextEditorDecorationType: (options) => ({ options, dispose() {} }), showWarningMessage: () => {} },
     Range: class {
       constructor(start, end) {
         this.start = start;
@@ -43,7 +43,11 @@ async function decorations(text, languageId = 'python', previousLanguages = [], 
     },
     setDecorations: (_style, ranges) => {
       for (const { range } of ranges) {
-        rendered.push([range.start.line, range.start.character, range.end.character]);
+        rendered.push(
+          captureColors
+            ? [_style.options.color, range.start.line, range.start.character, range.end.character]
+            : [range.start.line, range.start.character, range.end.character],
+        );
       }
     },
   };
@@ -142,3 +146,19 @@ for (const language of ['python', 'shellscript', 'elixir', 'tcl']) {
     assert.deepEqual(await decorations(text, language), [[1, 0, 17]]);
   });
 }
+
+test('single-line and block comments select the first longest matching tag', async () => {
+  const tags = [{ tag: 'TODO', color: '#111111' }, { tag: '?', color: '#222222' }, { tag: 'TODO!', color: '#333333' }];
+  for (
+    const [text, color] of [
+      ['//TODO? work', '#111111'],
+      ['/*\nTODO? work\n*/', '#111111'],
+      ['//TODO! work', '#333333'],
+      ['/**\n * TODO! work\n */', '#333333'],
+    ]
+  ) {
+    const ranges = await decorations(text, 'javascript', [], { tags }, true);
+    assert.equal(ranges.length, 1, text);
+    assert.equal(ranges[0][0], color, text);
+  }
+});

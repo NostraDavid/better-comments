@@ -60,11 +60,6 @@ export class Parser {
       return;
     }
 
-    let characters: Array<string> = [];
-    for (let commentTag of this.tags) {
-      characters.push(commentTag.escapedTag);
-    }
-
     if (this.isPlainText && this.contributions.highlightPlainText) {
       // start by tying the regex to the first character in a line
       this.expression = '(^)+([ \\t]*[ \\t]*)';
@@ -75,8 +70,8 @@ export class Parser {
 
     // Apply all configurable comment start tags
     this.expression += '(';
-    this.expression += characters.join('|');
-    this.expression += ')+(.*)';
+    this.expression += this.tagPattern();
+    this.expression += ')(.*)';
   }
 
   /**
@@ -139,14 +134,10 @@ export class Parser {
     let text = activeEditor.document.getText();
 
     // Build up regex matcher for custom delimiter tags
-    let characters: Array<string> = [];
-    for (let commentTag of this.tags) {
-      characters.push(commentTag.escapedTag);
-    }
 
     // Combine custom delimiters and the rest of the comment block matcher
     let commentMatchString = '(^)+([ \\t]*[ \\t]*)(';
-    commentMatchString += characters.join('|');
+    commentMatchString += this.tagPattern();
     commentMatchString += ')([ ]*|[:])+([^*/][^\\r\\n]*)';
 
     // Use start and end delimiters to find block comments
@@ -193,16 +184,12 @@ export class Parser {
     let text = activeEditor.document.getText();
 
     // Build up regex matcher for custom delimiter tags
-    let characters: Array<string> = [];
-    for (let commentTag of this.tags) {
-      characters.push(commentTag.escapedTag);
-    }
 
     // Combine custom delimiters and the rest of the comment block matcher
     let commentMatchString = '(^)+([ \\t]*\\*[ \\t]*)('; // Highlight after leading *
     let regEx = /(^|[ \t])(\/\*\*)+([\s\S]*?)(\*\/)/gm; // Find rows of comments matching pattern /** */
 
-    commentMatchString += characters.join('|');
+    commentMatchString += this.tagPattern();
     commentMatchString += ')([ ]*|[:])+([^*/][^\\r\\n]*)';
 
     let commentRegEx = new RegExp(commentMatchString, 'igm');
@@ -347,6 +334,11 @@ export class Parser {
    * @param input The input string to be escaped
    * @returns {string} The escaped string
    */
+  private tagPattern(): string {
+    return [...this.tags].sort((left, right) => right.tag.length - left.tag.length)
+      .map(tag => tag.escapedTag).join('|');
+  }
+
   private escapeRegExp(input: string): string {
     return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
   }

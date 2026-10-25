@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-10-25
+
+- Use the first longest matching tag consistently in single-line, block and JSDoc comments.
+- Preserve the first configured style for case-insensitive duplicate tags. The repeated-capture correction follows upstream PR #460 by aarondill.
+
 ## [1.0.4] - 2026-10-25
 
 - Apply tag, color and comment-setting changes immediately in every visible editor.
