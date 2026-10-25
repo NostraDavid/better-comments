@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-10-25
+
+- Validate tag settings without crashing activation; keep valid tags active when other entries are malformed.
+- Keep empty tags supported and use the first configured style for case-insensitive duplicates.
+- Describe tag fields in the settings schema, following upstream PR #400 by Take-Me1010.
+
 ## [1.0.1] - 2026-10-25
 
 - Keep assigned Python triple-quoted strings unstyled across every comment detector.

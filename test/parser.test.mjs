@@ -8,7 +8,7 @@ const moduleUrl = new URL('../out/parser.js', import.meta.url);
 const require = createRequire(moduleUrl);
 const source = fs.readFileSync(moduleUrl, 'utf8');
 
-async function decorations(text, languageId = 'python', previousLanguages = []) {
+async function decorations(text, languageId = 'python', previousLanguages = [], settings = {}) {
   const rendered = [];
   const vscode = {
     workspace: {
@@ -16,9 +16,10 @@ async function decorations(text, languageId = 'python', previousLanguages = []) 
         multilineComments: true,
         highlightPlainText: false,
         tags: [{ tag: '!', color: '#ff0000' }],
+        ...settings,
       }),
     },
-    window: { createTextEditorDecorationType: () => ({}) },
+    window: { createTextEditorDecorationType: () => ({}), showWarningMessage: () => {} },
     Range: class {
       constructor(start, end) {
         this.start = start;
@@ -110,4 +111,22 @@ test('assigned Python triple-quoted text is not a block comment', async () => {
 test('JSDoc state does not leak from JavaScript into a Python string', async () => {
   const text = 'value = """\n/**\n * ! not a comment\n */\n"""';
   assert.deepEqual(await decorations(text, 'python', ['javascript']), []);
+});
+
+test('invalid tag entries do not hide valid comment tags', async () => {
+  for (const invalid of [null, 42, {}, { tag: 42 }, { tag: 'bad', color: 42 }, { tag: 'bad', bold: 'yes' }]) {
+    const text = 'value = 1  # ! real';
+    assert.deepEqual(await decorations(text, 'python', [], { tags: [invalid, { tag: '!' }] }), [[0, 11, text.length]]);
+  }
+});
+
+test('missing or empty tag settings safely produce no decorations', async () => {
+  for (const tags of [null, 42, [], undefined]) {
+    assert.deepEqual(await decorations('# ! real', 'python', [], { tags }), []);
+  }
+});
+
+test('empty tags remain supported and duplicate tags keep the first style', async () => {
+  const text = 'value = 1  # real';
+  assert.deepEqual(await decorations(text, 'python', [], { tags: [{ tag: '' }, { tag: '' }] }), [[0, 11, text.length]]);
 });

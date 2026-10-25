@@ -1,7 +1,7 @@
 {
   "name": "nostradavid-better-comments",
   "displayName": "Better Comments by NostraDavid",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Comment highlighting that distinguishes Python comments from strings. Existing better-comments.* settings remain supported.",
   "categories": [
     "Formatters"
@@ -91,7 +91,37 @@
               "bold": false,
               "italic": false
             }
-          ]
+          ],
+          "items": {
+            "type": "object",
+            "required": [
+              "tag"
+            ],
+            "properties": {
+              "tag": {
+                "type": "string",
+                "description": "Comment tag. An empty string matches any real comment."
+              },
+              "color": {
+                "type": "string"
+              },
+              "backgroundColor": {
+                "type": "string"
+              },
+              "strikethrough": {
+                "type": "boolean"
+              },
+              "underline": {
+                "type": "boolean"
+              },
+              "bold": {
+                "type": "boolean"
+              },
+              "italic": {
+                "type": "boolean"
+              }
+            }
+          }
         }
       }
     }

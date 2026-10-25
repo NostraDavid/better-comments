@@ -289,8 +289,23 @@ export class Parser {
    * Sets the highlighting tags up for use by the parser
    */
   private setTags(): void {
-    let items = this.contributions.tags;
-    for (let item of items) {
+    const configured = this.contributions.tags;
+    const items = Array.isArray(configured) ? configured : [];
+    let ignored = Array.isArray(configured) ? 0 : 1;
+    for (const item of items) {
+      if (
+        !item || typeof item !== 'object' || typeof item.tag !== 'string'
+        || !(['color', 'backgroundColor'] as const).every(key =>
+          item[key] === undefined || typeof item[key] === 'string'
+        )
+        || !(['strikethrough', 'underline', 'bold', 'italic'] as const).every(key =>
+          item[key] === undefined || typeof item[key] === 'boolean'
+        )
+        || this.tags.some(tag => tag.tag.toLowerCase() === item.tag.toLowerCase())
+      ) {
+        ignored++;
+        continue;
+      }
       let options: vscode.DecorationRenderOptions = { color: item.color, backgroundColor: item.backgroundColor };
 
       // ? the textDecoration is initialised to empty so we can concat a preceeding space on it
@@ -319,6 +334,11 @@ export class Parser {
         ranges: [],
         decoration: vscode.window.createTextEditorDecorationType(options),
       });
+    }
+    if (ignored > 0) {
+      void vscode.window.showWarningMessage(
+        `Better Comments: ignored ${ignored} invalid or duplicate tag setting(s). Valid tags remain active.`,
+      );
     }
   }
 
