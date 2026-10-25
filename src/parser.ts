@@ -17,9 +17,6 @@ export class Parser {
   // * this will allow plaintext files to show comment highlighting if switched on
   private isPlainText = false;
 
-  // * this is used to prevent the first line of the file (specifically python) from coloring like other comments
-  private ignoreFirstLine = false;
-
   // * this is used to trigger the events when a supported language code is found
   public supportedLanguage = true;
 
@@ -107,8 +104,7 @@ export class Parser {
       let endPos = activeEditor.document.positionAt(match.index + match[0].length);
       let range = { range: new vscode.Range(startPos, endPos) };
 
-      // Required to ignore the first line of .py files (#61)
-      if (this.ignoreFirstLine && startPos.line === 0 && startPos.character === 0) {
+      if (!this.isPlainText && match.index === 0 && text.startsWith('#!')) {
         continue;
       }
 
@@ -248,7 +244,6 @@ export class Parser {
     this.highlightSingleLineComments = true;
     this.highlightMultilineComments = false;
     this.highlightJSDoc = false;
-    this.ignoreFirstLine = false;
     this.isPlainText = false;
 
     const config = await this.configuration.GetCommentConfiguration(languageCode);
@@ -268,12 +263,6 @@ export class Parser {
       case 'typescript':
       case 'typescriptreact':
         this.highlightJSDoc = true;
-        break;
-
-      case 'elixir':
-      case 'python':
-      case 'tcl':
-        this.ignoreFirstLine = true;
         break;
 
       case 'plaintext':

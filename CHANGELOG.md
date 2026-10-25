@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-10-25
+
+- Highlight genuine comments on the first line of Python, Elixir and Tcl files.
+- Skip only a file-leading shebang, including shell scripts; retain later comment markers and CRLF support.
+
 ## [1.0.2] - 2026-10-25
 
 - Validate tag settings without crashing activation; keep valid tags active when other entries are malformed.

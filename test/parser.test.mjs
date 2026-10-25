@@ -51,6 +51,8 @@ async function decorations(text, languageId = 'python', previousLanguages = [], 
     GetCommentConfiguration: async (language) =>
       language === 'python'
         ? { lineComment: '#', blockComment: ['"""', '"""'] }
+        : ['shellscript', 'elixir', 'tcl'].includes(language)
+        ? { lineComment: '#' }
         : { lineComment: '//', blockComment: ['/*', '*/'] },
   };
   const parser = new exports.Parser(configuration);
@@ -130,3 +132,13 @@ test('empty tags remain supported and duplicate tags keep the first style', asyn
   const text = 'value = 1  # real';
   assert.deepEqual(await decorations(text, 'python', [], { tags: [{ tag: '' }, { tag: '' }] }), [[0, 11, text.length]]);
 });
+
+for (const language of ['python', 'shellscript', 'elixir', 'tcl']) {
+  test(`${language}: the first ordinary comment remains highlighted`, async () => {
+    assert.deepEqual(await decorations('# ! task', language), [[0, 0, 8]]);
+  });
+  test(`${language}: only a file-leading shebang is ignored`, async () => {
+    const text = '#!/usr/bin/env tool\r\n#! actual comment';
+    assert.deepEqual(await decorations(text, language), [[1, 0, 17]]);
+  });
+}
