@@ -10,3 +10,5 @@
 The root `.gitignore` is an allowlist. Add new source directories explicitly and keep credentials, `.env` files, VSIX bundles, and dependency/build directories ignored. Use an explicit baseline for `just changelog` when the repository has no parent commit.
 
 VS Code owns extension activation. Press F5 to launch an isolated Extension Development Host; do not add a service manager or production credentials.
+
+All maintained scripts, tests, and build configuration use TypeScript. Node 24 runs development `.mts` files directly; `just type-check` validates them and the runtime. Webpack bundles the compiler's JavaScript output for both extension hosts.

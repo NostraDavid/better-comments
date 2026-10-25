@@ -55,7 +55,7 @@ jobs:
         run: |
           version="${RELEASE_TAG#v}"
           asset="nostradavid-better-comments-$version.vsix"
-          nix develop --command node scripts/release-notes.mjs "$version" > release-notes.md
+          nix develop --command node scripts/release-notes.mts "$version" > release-notes.md
           if gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' | grep -Fxq "$asset"; then
             echo "Keeping the existing release asset unchanged."
           elif gh release view "$RELEASE_TAG" > /dev/null 2>&1; then

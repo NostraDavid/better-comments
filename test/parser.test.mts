@@ -3,13 +3,23 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
 import vm from 'node:vm';
+import type { DecorationRenderOptions, TextEditor } from 'vscode';
+import type { CommentConfiguration } from '../src/types.ts';
+import { TestRange } from './boundary-types.mts';
+import type { TestDecoration, TestStyle } from './boundary-types.mts';
 
 const moduleUrl = new URL('../out/parser.js', import.meta.url);
 const require = createRequire(moduleUrl);
 const source = fs.readFileSync(moduleUrl, 'utf8');
 
-async function decorations(text, languageId = 'python', previousLanguages = [], settings = {}, captureColors = false) {
-  const rendered = [];
+async function decorations(
+  text: string,
+  languageId = 'python',
+  previousLanguages: string[] = [],
+  settings: Record<string, unknown> = {},
+  captureColors = false,
+) {
+  const rendered: ([number, number, number] | [DecorationRenderOptions['color'], number, number, number])[] = [];
   const vscode = {
     workspace: {
       getConfiguration: () => ({
@@ -19,29 +29,33 @@ async function decorations(text, languageId = 'python', previousLanguages = [], 
         ...settings,
       }),
     },
-    window: { createTextEditorDecorationType: (options) => ({ options, dispose() {} }), showWarningMessage: () => {} },
-    Range: class {
-      constructor(start, end) {
-        this.start = start;
-        this.end = end;
-      }
+    window: {
+      createTextEditorDecorationType: (options: DecorationRenderOptions) => ({
+        options,
+        disposed: false,
+        dispose() {
+          this.disposed = true;
+        },
+      }),
+      showWarningMessage: () => {},
     },
+    Range: TestRange,
   };
   const exports = {};
   vm.runInNewContext(source, {
     exports,
-    require: (name) => name === 'vscode' ? vscode : require(name),
+    require: (name: string) => name === 'vscode' ? vscode : require(name),
   }, { filename: moduleUrl.pathname });
   const editor = {
     document: {
       languageId,
       getText: () => text,
-      positionAt: (offset) => {
+      positionAt: (offset: number) => {
         const lines = text.slice(0, offset).split('\n');
-        return { line: lines.length - 1, character: lines.at(-1).length };
+        return { line: lines.length - 1, character: lines.at(-1)!.length };
       },
     },
-    setDecorations: (_style, ranges) => {
+    setDecorations: (_style: TestStyle, ranges: readonly TestDecoration[]) => {
       for (const { range } of ranges) {
         rendered.push(
           captureColors
@@ -51,7 +65,8 @@ async function decorations(text, languageId = 'python', previousLanguages = [], 
       }
     },
   };
-  const configuration = {
+  const activeEditor = editor as unknown as TextEditor;
+  const configuration: CommentConfiguration = {
     GetCommentConfiguration: async (language) =>
       language === 'python'
         ? { lineComment: '#', blockComment: ['"""', '"""'] }
@@ -61,14 +76,15 @@ async function decorations(text, languageId = 'python', previousLanguages = [], 
         ? { blockComment: ['<!--', '-->'] }
         : { lineComment: '//', blockComment: ['/*', '*/'] },
   };
-  const parser = new exports.Parser(configuration);
+  const { Parser } = exports as typeof import('../src/parser.ts');
+  const parser = new Parser(configuration);
   for (const language of previousLanguages) await parser.SetRegex(language);
   await parser.SetRegex(languageId);
-  const scan = parser.ScanComments(editor.document);
-  parser.FindSingleLineComments(editor, scan);
-  parser.FindBlockComments(editor, scan);
-  parser.FindJSDocComments(editor, scan);
-  parser.ApplyDecorations(editor);
+  const scan = parser.ScanComments(activeEditor.document);
+  parser.FindSingleLineComments(activeEditor, scan);
+  parser.FindBlockComments(activeEditor, scan);
+  parser.FindJSDocComments(activeEditor, scan);
+  parser.ApplyDecorations(activeEditor);
   return rendered;
 }
 
@@ -173,7 +189,7 @@ for (
     ['javascript', '/** ! work */ const next = 1;', [[0, 4, 11]]],
     ['html', '<!-- ! work --> <div>code</div>', [[0, 5, 12]]],
     ['javascript', '/*\r\n * ! work\r\n */', [[1, 3, 9]]],
-  ]
+  ] satisfies [string, string, number[][]][]
 ) {
   test(`${language}: block markers bound decorations in ${text}`, async () => {
     assert.deepEqual(await decorations(text, language), expected);

@@ -1,29 +1,35 @@
 {
   "compilerOptions": {
     "strict": true,
-    "module": "commonjs",
     "target": "ES2022",
-    "outDir": "out",
-    "rootDir": "src",
-    "lib": [
-      "ES2022",
-      "DOM"
-    ],
+    "module": "NodeNext",
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noUnusedLocals": true,
+    "noImplicitReturns": true,
     "types": [
       "node",
       "vscode"
     ],
-    "skipLibCheck": true,
-    "noEmitOnError": true,
-    "noUnusedLocals": true,
-    "noImplicitReturns": true,
-    "alwaysStrict": true
+    "lib": [
+      "ES2022",
+      "DOM"
+    ]
   },
   "include": [
-    "src/**/*.ts"
+    "src/**/*.ts",
+    "scripts/**/*.mts",
+    "test/**/*.mts",
+    "webpack.config.mts"
   ],
   "exclude": [
-    "src/test/**",
-    "node_modules"
+    "node_modules",
+    "out",
+    "dist",
+    "test/fixtures"
   ]
 }

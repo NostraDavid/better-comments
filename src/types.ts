@@ -27,3 +27,7 @@ export interface CommentConfig {
   lineComment?: string | string[];
   blockComment?: [string, string];
 }
+
+export interface CommentConfiguration {
+  GetCommentConfiguration(languageCode: string): Promise<CommentConfig | undefined>;
+}

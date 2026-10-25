@@ -34,7 +34,8 @@
 !/package-lock.json
 !/language-configuration.json
 !/tsconfig.json
-!/webpack.config.js
+!/tsconfig.runtime.json
+!/webpack.config.mts
 !/icon.png
 
 node_modules/

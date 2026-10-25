@@ -2,11 +2,16 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8')) as {
+  packages: Record<string, { dev?: boolean; devOptional?: boolean; link?: boolean }>;
+};
 const notices = [];
 for (const [directory, dependency] of Object.entries(lock.packages)) {
   if (!directory || dependency.dev || dependency.devOptional || dependency.link) continue;
-  const manifest = JSON.parse(fs.readFileSync(path.join(directory, 'package.json'), 'utf8'));
+  const manifest = JSON.parse(fs.readFileSync(path.join(directory, 'package.json'), 'utf8')) as {
+    name: string;
+    version: string;
+  };
   const license = fs.readdirSync(directory).find((name) => /^licen[cs]e(?:\.|$)/i.test(name));
   assert.ok(license, `Include the license for bundled dependency ${manifest.name}.`);
   const text = fs.readFileSync(path.join(directory, license), 'utf8').trim();

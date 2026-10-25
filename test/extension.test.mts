@@ -4,24 +4,44 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { test } from 'node:test';
 import vm from 'node:vm';
+import type { DecorationRenderOptions, ExtensionContext } from 'vscode';
+import { TestRange } from './boundary-types.mts';
+import type {
+  TestDecoration,
+  TestDisposable,
+  TestEditor,
+  TestListener,
+  TestSettings,
+  TestStyle,
+} from './boundary-types.mts';
 
-async function fixture(languageSettings = {}) {
+type RuntimeModules = {
+  extension: typeof import('../src/extension.ts');
+  parser: typeof import('../src/parser.ts');
+  configuration: typeof import('../src/configuration.ts');
+};
+
+async function fixture(languageSettings: Record<string, Partial<TestSettings>> = {}) {
   const directory = new URL('../out/', import.meta.url);
   const require = createRequire(new URL('extension.js', directory));
-  const listeners = {};
-  const timers = new Map();
+  const listeners: Record<string, TestListener[]> = {};
+  const timers = new Map<number, () => unknown>();
   let timerId = 0;
-  const styles = [];
-  const settings = { multilineComments: true, highlightPlainText: false, tags: [{ tag: '!', color: '#ff0000' }] };
-  const editors = ['python', 'javascript'].map(languageId => {
+  const styles: TestStyle[] = [];
+  const settings: TestSettings = {
+    multilineComments: true,
+    highlightPlainText: false,
+    tags: [{ tag: '!', color: '#ff0000' }],
+  };
+  const editors: TestEditor[] = ['python', 'javascript'].map(languageId => {
     const text = languageId === 'python' ? '# ! work' : '// ! work';
     const document = {
       languageId,
       uri: { path: languageId },
       getText: () => text,
-      positionAt: offset => ({ line: 0, character: offset }),
+      positionAt: (offset: number) => ({ line: 0, character: offset }),
     };
-    const decorations = new Map();
+    const decorations = new Map<TestStyle, TestDecoration[]>();
     return {
       document,
       decorations,
@@ -30,7 +50,7 @@ async function fixture(languageSettings = {}) {
       },
     };
   });
-  const subscribe = name => (handler, _thisArg, subscriptions) => {
+  const subscribe = (name: string) => (handler: TestListener, _thisArg: unknown, subscriptions?: TestDisposable[]) => {
     (listeners[name] ||= []).push(handler);
     const disposable = {
       dispose() {
@@ -41,17 +61,12 @@ async function fixture(languageSettings = {}) {
     return disposable;
   };
   const vscode = {
-    Range: class {
-      constructor(start, end) {
-        this.start = start;
-        this.end = end;
-      }
-    },
-    Uri: { joinPath: (base, file) => ({ path: path.join(base.path, file) }) },
+    Range: TestRange,
+    Uri: { joinPath: (base: { path: string }, file: string) => ({ path: path.join(base.path, file) }) },
     window: {
       activeTextEditor: editors[0],
       visibleTextEditors: editors,
-      createTextEditorDecorationType(options) {
+      createTextEditorDecorationType(options: DecorationRenderOptions) {
         const style = {
           options,
           disposed: false,
@@ -67,12 +82,12 @@ async function fixture(languageSettings = {}) {
       onDidChangeVisibleTextEditors: subscribe('visible'),
     },
     workspace: {
-      getConfiguration: (_section, scope) => {
-        const values = { ...settings, ...languageSettings[scope?.languageId] };
-        return { ...values, get: (key, fallback) => values[key] ?? fallback };
+      getConfiguration: (_section: string, scope?: { languageId: string }) => {
+        const values = { ...settings, ...(scope ? languageSettings[scope.languageId] : {}) };
+        return { ...values, get: (key: keyof TestSettings, fallback: unknown) => values[key] ?? fallback };
       },
       fs: {
-        readFile: async uri =>
+        readFile: async (uri: { path: string }) =>
           new TextEncoder().encode(JSON.stringify({
             comments: uri.path.includes('python')
               ? { lineComment: '#', blockComment: ['"""', '"""'] }
@@ -96,39 +111,40 @@ async function fixture(languageSettings = {}) {
       onDidChange: subscribe('extensions'),
     },
     Disposable: class {
-      constructor(dispose) {
+      dispose: () => void;
+      constructor(dispose: () => void) {
         this.dispose = dispose;
       }
     },
   };
-  const cache = new Map();
-  function load(name) {
-    if (cache.has(name)) return cache.get(name).exports;
+  const cache = new Map<string, { exports: unknown }>();
+  function load<K extends keyof RuntimeModules>(name: K): RuntimeModules[K] {
+    if (cache.has(name)) return cache.get(name)!.exports as RuntimeModules[K];
     const module = { exports: {} };
     cache.set(name, module);
     vm.runInNewContext(fs.readFileSync(new URL(name + '.js', directory), 'utf8'), {
       module,
       exports: module.exports,
       TextDecoder,
-      setTimeout(callback) {
+      setTimeout(callback: () => unknown) {
         const id = ++timerId;
         timers.set(id, callback);
         return id;
       },
-      clearTimeout(id) {
-        timers.delete(id);
+      clearTimeout(id: number | undefined) {
+        if (id !== undefined) timers.delete(id);
       },
-      require(specifier) {
+      require(specifier: string) {
         if (specifier === 'vscode') return vscode;
-        if (specifier.startsWith('./')) return load(specifier.slice(2));
+        if (specifier.startsWith('./')) return load(specifier.slice(2) as keyof RuntimeModules);
         return require(specifier);
       },
     });
-    return module.exports;
+    return module.exports as RuntimeModules[K];
   }
-  const context = { subscriptions: [] };
+  const context = { subscriptions: [] as TestDisposable[] };
   const extension = load('extension');
-  await extension.activate(context);
+  await extension.activate(context as unknown as ExtensionContext);
   async function flush() {
     for (let attempt = 0; attempt < 10; attempt++) {
       await new Promise(resolve => setImmediate(resolve));
@@ -139,7 +155,7 @@ async function fixture(languageSettings = {}) {
     }
   }
   await flush();
-  function rendered(editor) {
+  function rendered(editor: TestEditor) {
     return Array.from(editor.decorations.entries()).filter(([style, ranges]) => !style.disposed && ranges.length).map((
       [style, ranges],
     ) => ({ color: style.options.color, count: ranges.length }));
@@ -155,7 +171,7 @@ async function fixture(languageSettings = {}) {
     load,
     flush,
     rendered,
-    async emit(name, event) {
+    async emit(name: string, event?: unknown) {
       for (const handler of listeners[name] || []) await handler(event);
       await flush();
     },
@@ -165,7 +181,7 @@ async function fixture(languageSettings = {}) {
 test('settings refresh all visible editors without reloading the extension', async () => {
   const f = await fixture();
   f.settings.tags = [{ tag: '!', color: '#00ff00' }];
-  await f.emit('settings', { affectsConfiguration: section => section === 'better-comments' });
+  await f.emit('settings', { affectsConfiguration: (section: string) => section === 'better-comments' });
   for (const editor of f.editors) {
     assert.deepEqual(f.rendered(editor), [{ color: '#00ff00', count: 1 }], editor.document.languageId);
   }
@@ -236,7 +252,7 @@ test('a removed language cannot repopulate the cache from an older pending read'
   const f = await fixture();
   const { Configuration } = f.load('configuration');
   const configuration = new Configuration();
-  let complete;
+  let complete!: (data: Uint8Array<ArrayBuffer>) => void;
   f.vscode.workspace.fs.readFile = () =>
     new Promise(resolve => {
       complete = resolve;

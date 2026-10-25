@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.0.10] - 2026-10-25
+
+### Changed
+
+- Convert tests, maintenance scripts and Webpack configuration to strict TypeScript.
+- Reuse compiler output for Node and browser bundles, removing the duplicate loader and its seven development packages.
+
 ## [1.0.9] - 2026-10-25
 
 ### Changed

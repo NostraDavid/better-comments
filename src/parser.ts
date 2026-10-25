@@ -1,8 +1,7 @@
 import { parser as javascriptParser } from '@lezer/javascript';
 import { parser as pythonParser } from '@lezer/python';
 import * as vscode from 'vscode';
-import { Configuration } from './configuration';
-import type { CommentTag, Contributions, TagDefinition } from './types';
+import type { CommentConfiguration, CommentTag, Contributions, TagDefinition } from './types';
 
 interface CommentScan {
   text: string;
@@ -47,13 +46,13 @@ export class Parser {
   private contributions: Contributions;
 
   // The configuration necessary to find supported languages on startup
-  private configuration: Configuration;
+  private configuration: CommentConfiguration;
 
   /**
    * Creates a new instance of the Parser class
    * @param configuration
    */
-  public constructor(config: Configuration, document?: vscode.TextDocument) {
+  public constructor(config: CommentConfiguration, document?: vscode.TextDocument) {
     this.configuration = config;
     this.contributions = vscode.workspace.getConfiguration('better-comments', document) as unknown as Contributions;
 

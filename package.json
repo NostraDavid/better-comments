@@ -1,7 +1,7 @@
 {
   "name": "nostradavid-better-comments",
   "displayName": "Better Comments by NostraDavid",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "Comment highlighting that distinguishes Python comments from strings. Existing better-comments.* settings remain supported.",
   "categories": [
     "Formatters"
@@ -20,13 +20,13 @@
   "main": "./dist/extension.js",
   "browser": "./dist/web/extension.js",
   "scripts": {
-    "test": "npm run compile && node --test test/*.test.mjs",
-    "build": "webpack --mode production && node scripts/third-party-notices.mjs",
+    "test": "npm run type-check && node --test test/*.test.mts",
+    "build": "npm run compile && webpack --mode production --config webpack.config.mts --disable-interpret && node scripts/third-party-notices.mts",
     "vscode:prepublish": "npm run build",
     "package": "vsce package --no-dependencies --githubBranch master",
-    "release:check": "node scripts/release-notes.mjs",
-    "compile": "tsc -p .",
-    "type-check": "tsc -p . --noEmit"
+    "release:check": "node scripts/release-notes.mts",
+    "compile": "tsc -p tsconfig.runtime.json",
+    "type-check": "npm run compile && tsc --noEmit"
   },
   "contributes": {
     "configuration": {
@@ -150,7 +150,6 @@
     "@types/node": "24.19.2",
     "@types/vscode": "1.100.0",
     "@vscode/vsce": "4.0.0",
-    "ts-loader": "9.6.2",
     "typescript": "5.9.3",
     "webpack": "5.112.2",
     "webpack-cli": "7.2.3"

@@ -8,7 +8,7 @@
     "textWrap": "maintain"
   },
   "includes": [
-    "**/*.{js,cjs,mjs,ts,json,jsonc,md,yaml,yml}"
+    "**/*.{js,cjs,mjs,ts,mts,json,jsonc,md,yaml,yml}"
   ],
   "excludes": [
     "node_modules/**",

@@ -41,7 +41,7 @@ format-check:
 
 [group('quality')]
 lint:
-    oxlint --deny-warnings scripts test src webpack.config.js
+    oxlint --deny-warnings scripts test src webpack.config.mts
     statix check flake.nix
     deadnix --fail flake.nix
     actionlint
@@ -72,7 +72,7 @@ pre-commit:
 
 [group('release')]
 release-check:
-    node scripts/release-notes.mjs
+    node scripts/release-notes.mts
 
 [group('release')]
 package: release-check
