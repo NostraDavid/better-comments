@@ -1,6 +1,11 @@
 import * as vscode from 'vscode';
 
 import * as json5 from 'json5';
+import type { CommentConfig } from './types';
+
+interface ExtensionManifest {
+  contributes?: { languages?: { id: string; configuration?: string }[] };
+}
 
 export class Configuration {
   private readonly commentConfig = new Map<string, Promise<CommentConfig | undefined>>();
@@ -22,7 +27,7 @@ export class Configuration {
     this.languageConfigFiles.clear();
 
     for (let extension of vscode.extensions.all) {
-      let packageJSON = extension.packageJSON;
+      let packageJSON = extension.packageJSON as ExtensionManifest;
 
       if (packageJSON.contributes && packageJSON.contributes.languages) {
         for (let language of packageJSON.contributes.languages) {
@@ -53,7 +58,7 @@ export class Configuration {
 
     const filePath = this.languageConfigFiles.get(languageCode)!;
     const pending = Promise.resolve(vscode.workspace.fs.readFile(filePath))
-      .then(rawContent => json5.parse(new TextDecoder().decode(rawContent)).comments as CommentConfig | undefined)
+      .then(rawContent => (json5.parse(new TextDecoder().decode(rawContent)) as { comments?: CommentConfig }).comments)
       .catch(() => undefined);
     this.commentConfig.set(languageCode, pending);
     return pending;

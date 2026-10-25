@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.0.9] - 2026-10-25
+
+### Changed
+
+- Replace ambient and untyped comment settings, tags and decoration ranges with explicit TypeScript contracts.
+- Narrow tag settings at the existing validation boundary while preserving all comment and language behavior.
+
 ## [1.0.8] - 2026-10-25
 
 ### Fixed

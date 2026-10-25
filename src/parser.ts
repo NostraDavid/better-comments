@@ -2,6 +2,7 @@ import { parser as javascriptParser } from '@lezer/javascript';
 import { parser as pythonParser } from '@lezer/python';
 import * as vscode from 'vscode';
 import { Configuration } from './configuration';
+import type { CommentTag, Contributions, TagDefinition } from './types';
 
 interface CommentScan {
   text: string;
@@ -14,6 +15,15 @@ const scriptParsers = new Map([
   ['typescript', javascriptParser.configure({ dialect: 'ts' })],
   ['typescriptreact', javascriptParser.configure({ dialect: 'ts jsx' })],
 ]);
+
+function isTagDefinition(item: unknown): item is TagDefinition {
+  if (!item || typeof item !== 'object' || !('tag' in item) || typeof item.tag !== 'string') return false;
+  const value = item as Record<string, unknown>;
+  return ['color', 'backgroundColor'].every(key => value[key] === undefined || typeof value[key] === 'string')
+    && ['strikethrough', 'underline', 'bold', 'italic'].every(key =>
+      value[key] === undefined || typeof value[key] === 'boolean'
+    );
+}
 
 export class Parser {
   private tags: CommentTag[] = [];
@@ -45,7 +55,7 @@ export class Parser {
    */
   public constructor(config: Configuration, document?: vscode.TextDocument) {
     this.configuration = config;
-    this.contributions = vscode.workspace.getConfiguration('better-comments', document) as any;
+    this.contributions = vscode.workspace.getConfiguration('better-comments', document) as unknown as Contributions;
 
     this.setTags();
   }
@@ -57,7 +67,7 @@ export class Parser {
 
   public ReloadConfiguration(document?: vscode.TextDocument): void {
     this.Dispose();
-    this.contributions = vscode.workspace.getConfiguration('better-comments', document) as any;
+    this.contributions = vscode.workspace.getConfiguration('better-comments', document) as unknown as Contributions;
     this.setTags();
   }
 
@@ -261,17 +271,11 @@ export class Parser {
    */
   private setTags(): void {
     const configured = this.contributions.tags;
-    const items = Array.isArray(configured) ? configured : [];
+    const items: unknown[] = Array.isArray(configured) ? configured : [];
     let ignored = Array.isArray(configured) ? 0 : 1;
     for (const item of items) {
       if (
-        !item || typeof item !== 'object' || typeof item.tag !== 'string'
-        || !(['color', 'backgroundColor'] as const).every(key =>
-          item[key] === undefined || typeof item[key] === 'string'
-        )
-        || !(['strikethrough', 'underline', 'bold', 'italic'] as const).every(key =>
-          item[key] === undefined || typeof item[key] === 'boolean'
-        )
+        !isTagDefinition(item)
         || this.tags.some(tag => tag.tag.toLowerCase() === item.tag.toLowerCase())
       ) {
         ignored++;
