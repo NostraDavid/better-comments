@@ -245,13 +245,16 @@ export class Parser {
    */
   private async setDelimiter(languageCode: string): Promise<void> {
     this.supportedLanguage = false;
+    this.highlightSingleLineComments = true;
+    this.highlightMultilineComments = false;
+    this.highlightJSDoc = false;
     this.ignoreFirstLine = false;
     this.isPlainText = false;
 
     const config = await this.configuration.GetCommentConfiguration(languageCode);
     if (config) {
-      let blockCommentStart = config.blockComment ? config.blockComment[0] : null;
-      let blockCommentEnd = config.blockComment ? config.blockComment[1] : null;
+      let blockCommentStart = languageCode !== 'python' && config.blockComment ? config.blockComment[0] : null;
+      let blockCommentEnd = languageCode !== 'python' && config.blockComment ? config.blockComment[1] : null;
 
       this.setCommentFormat(config.lineComment || blockCommentStart, blockCommentStart, blockCommentEnd);
 

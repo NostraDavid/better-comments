@@ -8,7 +8,7 @@ const moduleUrl = new URL('../out/parser.js', import.meta.url);
 const require = createRequire(moduleUrl);
 const source = fs.readFileSync(moduleUrl, 'utf8');
 
-async function decorations(text, languageId = 'python') {
+async function decorations(text, languageId = 'python', previousLanguages = []) {
   const rendered = [];
   const vscode = {
     workspace: {
@@ -47,11 +47,17 @@ async function decorations(text, languageId = 'python') {
     },
   };
   const configuration = {
-    GetCommentConfiguration: async () => ({ lineComment: languageId === 'python' ? '#' : '//' }),
+    GetCommentConfiguration: async (language) =>
+      language === 'python'
+        ? { lineComment: '#', blockComment: ['"""', '"""'] }
+        : { lineComment: '//', blockComment: ['/*', '*/'] },
   };
   const parser = new exports.Parser(configuration);
+  for (const language of previousLanguages) await parser.SetRegex(language);
   await parser.SetRegex(languageId);
   parser.FindSingleLineComments(editor);
+  parser.FindBlockComments(editor);
+  parser.FindJSDocComments(editor);
   parser.ApplyDecorations(editor);
   return rendered;
 }
@@ -95,4 +101,13 @@ test('Python shebang remains unstyled', async () => {
 test('JavaScript comment decoration remains available', async () => {
   const text = 'const answer = 42; // ! actual comment';
   assert.deepEqual(await decorations(text, 'javascript'), [[0, 19, text.length]]);
+});
+
+test('assigned Python triple-quoted text is not a block comment', async () => {
+  assert.deepEqual(await decorations('value = """\n! not a comment\n"""'), []);
+});
+
+test('JSDoc state does not leak from JavaScript into a Python string', async () => {
+  const text = 'value = """\n/**\n * ! not a comment\n */\n"""';
+  assert.deepEqual(await decorations(text, 'python', ['javascript']), []);
 });
