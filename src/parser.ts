@@ -34,7 +34,7 @@ export class Parser {
   public supportedLanguage = true;
 
   // Read from the package.json
-  private contributions: Contributions = vscode.workspace.getConfiguration('better-comments') as any;
+  private contributions: Contributions;
 
   // The configuration necessary to find supported languages on startup
   private configuration: Configuration;
@@ -43,8 +43,9 @@ export class Parser {
    * Creates a new instance of the Parser class
    * @param configuration
    */
-  public constructor(config: Configuration) {
+  public constructor(config: Configuration, document?: vscode.TextDocument) {
     this.configuration = config;
+    this.contributions = vscode.workspace.getConfiguration('better-comments', document) as any;
 
     this.setTags();
   }

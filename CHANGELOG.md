@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.0.8] - 2026-10-25
+
+### Fixed
+
+- Respect native per-language `better-comments.enabled` settings and clear existing colors when disabled.
+- Refresh document settings and comment ranges when changing language in the same editor.
+- Prevent a pending read from restoring a removed language configuration in the cache.
+
 ## [1.0.7] - 2026-10-25
 
 - Limit JavaScript, TypeScript, JSX and TSX decorations to real line/block comments using a small Lezer grammar shared with the existing Python parser runtime.

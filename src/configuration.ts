@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import * as json5 from 'json5';
 
 export class Configuration {
-  private readonly commentConfig = new Map<string, CommentConfig | undefined>();
+  private readonly commentConfig = new Map<string, Promise<CommentConfig | undefined>>();
   private readonly languageConfigFiles = new Map<string, vscode.Uri>();
 
   /**
@@ -51,21 +51,11 @@ export class Configuration {
       return undefined;
     }
 
-    try {
-      // Get the filepath from the map
-      const filePath = this.languageConfigFiles.get(languageCode)!;
-      const rawContent = await vscode.workspace.fs.readFile(filePath);
-      const content = new TextDecoder().decode(rawContent);
-
-      // use json5, because the config can contains comments
-      const config = json5.parse(content);
-
-      this.commentConfig.set(languageCode, config.comments);
-
-      return config.comments;
-    } catch {
-      this.commentConfig.set(languageCode, undefined);
-      return undefined;
-    }
+    const filePath = this.languageConfigFiles.get(languageCode)!;
+    const pending = Promise.resolve(vscode.workspace.fs.readFile(filePath))
+      .then(rawContent => json5.parse(new TextDecoder().decode(rawContent)).comments as CommentConfig | undefined)
+      .catch(() => undefined);
+    this.commentConfig.set(languageCode, pending);
+    return pending;
   }
 }

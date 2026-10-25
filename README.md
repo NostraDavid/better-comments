@@ -21,3 +21,13 @@ Dependency upgrades are explicit: `just lock-upgrade` and `just update-nix`. Nor
 Tag and color changes apply immediately to all visible editors. Closing an editor or disabling the extension clears its decorations and pending updates.
 
 When tags overlap, the first longest matching tag chooses the style. Case-insensitive duplicate definitions retain the first configured style.
+
+To disable highlighting for one language, use VS Code's native language settings:
+
+```json
+"[python]": {
+  "better-comments.enabled": false
+}
+```
+
+Changing a document's language applies its settings and removes old decorations immediately.

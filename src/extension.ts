@@ -6,6 +6,8 @@ export function activate(context: vscode.ExtensionContext) {
   const configuration = new Configuration();
   const entries = new Map<vscode.TextEditor, {
     parser: Parser;
+    document: vscode.TextDocument;
+    language: string;
     revision: number;
     timer?: ReturnType<typeof setTimeout>;
   }>();
@@ -14,10 +16,19 @@ export function activate(context: vscode.ExtensionContext) {
   function schedule(editor: vscode.TextEditor, reload = false) {
     let entry = entries.get(editor);
     if (!entry) {
-      entry = { parser: new Parser(configuration), revision: 0 };
+      entry = {
+        parser: new Parser(configuration, editor.document),
+        document: editor.document,
+        language: editor.document.languageId,
+        revision: 0,
+      };
       entries.set(editor, entry);
     }
-    if (reload) entry.parser.ReloadConfiguration(editor.document);
+    if (reload || entry.document !== editor.document || entry.language !== editor.document.languageId) {
+      entry.parser.ReloadConfiguration(editor.document);
+      entry.document = editor.document;
+      entry.language = editor.document.languageId;
+    }
     const current = entry;
     const revision = ++current.revision;
     clearTimeout(current.timer);
@@ -29,7 +40,10 @@ export function activate(context: vscode.ExtensionContext) {
         disposed || revision !== current.revision || editor.document !== document
         || editor.document.languageId !== language || !vscode.window.visibleTextEditors.includes(editor)
       ) return;
-      if (current.parser.supportedLanguage) {
+      if (
+        current.parser.supportedLanguage
+        && vscode.workspace.getConfiguration('better-comments', document).get('enabled', true)
+      ) {
         const scan = current.parser.ScanComments(document);
         current.parser.FindSingleLineComments(editor, scan);
         current.parser.FindBlockComments(editor, scan);
@@ -63,6 +77,15 @@ export function activate(context: vscode.ExtensionContext) {
     event => {
       for (const editor of vscode.window.visibleTextEditors) {
         if (editor.document === event.document) schedule(editor);
+      }
+    },
+    null,
+    context.subscriptions,
+  );
+  vscode.workspace.onDidOpenTextDocument(
+    document => {
+      for (const editor of vscode.window.visibleTextEditors) {
+        if (editor.document === document) schedule(editor);
       }
     },
     null,
