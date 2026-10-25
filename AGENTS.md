@@ -8,3 +8,5 @@ Protect bug fixes with focused regression tests. Keep credentials out of package
 Record user-visible changes in `CHANGELOG.md`; use scoped commit messages.
 For setup, read `CONTRIBUTING.md`. For releases, read `docs/releasing.md`.
 Architecture dispositions are in `docs/project-baseline.md`.
+
+Valid commit scopes: comments, parser, tooling, documentation, agents, release.
