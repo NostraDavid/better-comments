@@ -20,12 +20,12 @@
 
 - Highlight compact and single-line block comments without coloring code after the closing delimiter.
 - Handle opening-line tags, decorative asterisks and CRLF consistently in ordinary and JSDoc blocks.
-- Apply the multiline setting to JSDoc comments as well. The boundary work follows upstream PR #457 by aarondill, adapted to preserve Python string filtering.
+- Apply the multiline setting to JSDoc comments as well. The boundary work follows upstream PR [#457](https://github.com/aaron-bond/better-comments/pull/457) by aarondill, adapted to preserve Python string filtering.
 
 ## [1.0.5] - 2026-10-25
 
 - Use the first longest matching tag consistently in single-line, block and JSDoc comments.
-- Preserve the first configured style for case-insensitive duplicate tags. The repeated-capture correction follows upstream PR #460 by aarondill.
+- Preserve the first configured style for case-insensitive duplicate tags. The repeated-capture correction follows upstream PR [#460](https://github.com/aaron-bond/better-comments/pull/460) by aarondill.
 
 ## [1.0.4] - 2026-10-25
 
@@ -43,7 +43,7 @@
 
 - Validate tag settings without crashing activation; keep valid tags active when other entries are malformed.
 - Keep empty tags supported and use the first configured style for case-insensitive duplicates.
-- Describe tag fields in the settings schema, following upstream PR #400 by Take-Me1010.
+- Describe tag fields in the settings schema, following upstream PR [#400](https://github.com/aaron-bond/better-comments/pull/400) by Take-Me1010.
 
 ## [1.0.1] - 2026-10-25
 
