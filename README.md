@@ -1,161 +1,19 @@
-# Better Comments
+# Better Comments by NostraDavid
 
-The Better Comments extension will help you create more human-friendly comments in your code.  
-With this extension, you will be able to categorise your annotations into:
-* Alerts
-* Queries
-* TODOs
-* Highlights
-* Commented out code can also be styled to make it clear the code shouldn't be there
-* Any other comment styles you'd like can be specified in the settings
+Comment highlighting that distinguishes Python comments from strings. Existing better-comments.* settings remain supported.
 
-![Annotated code](images/better-comments.PNG)
+A maintained fork of [aaron-bond/better-comments](https://github.com/aaron-bond/better-comments). Original authorship and license notices are preserved. This fork starts at **1.0.0**.
 
-## Configuration
+## Install
 
-This extension can be configured in User Settings or Workspace settings.
+Download `nostradavid-better-comments-1.0.0.vsix` from [GitHub Releases](https://github.com/NostraDavid/better-comments/releases). In VS Code, open Extensions, choose **Install from VSIX**, and select that file.
 
-`"better-comments.multilineComments": true`  
- This setting will control whether multiline comments are styled using the annotation tags.
- When false, multiline comments will be presented without decoration.
+Disable `aaron-bond.better-comments` before enabling this fork to avoid duplicate decorations. Existing `better-comments.*` settings keep their names.
 
-`"better-comments.highlightPlainText": false`  
-This setting will control whether comments in a plain text file are styled using the annotation tags.
-When true, the tags (defaults: `! * ? //`) will be detected if they're the first character on a line.
+See [the beginner guide](docs/getting-started.md), [contribution guide](CONTRIBUTING.md), [changelog](CHANGELOG.md), and [release guide](docs/releasing.md).
 
-`better-comments.tags`  
-The tags are the characters or sequences used to mark a comment for decoration.
-The default 5 can be modified to change the colors, and more can be added.
+## Development
 
-```json
-"better-comments.tags": [
-  {
-    "tag": "!",
-    "color": "#FF2D00",
-    "strikethrough": false,
-    "underline": false,
-    "backgroundColor": "transparent",
-    "bold": false,
-    "italic": false
-  },
-  {
-    "tag": "?",
-    "color": "#3498DB",
-    "strikethrough": false,
-    "underline": false,
-    "backgroundColor": "transparent",
-    "bold": false,
-    "italic": false
-  },
-  {
-    "tag": "//",
-    "color": "#474747",
-    "strikethrough": true,
-    "underline": false,
-    "backgroundColor": "transparent",
-    "bold": false,
-    "italic": false
-  },
-  {
-    "tag": "todo",
-    "color": "#FF8C00",
-    "strikethrough": false,
-    "underline": false,
-    "backgroundColor": "transparent",
-    "bold": false,
-    "italic": false
-  },
-  {
-    "tag": "*",
-    "color": "#98C379",
-    "strikethrough": false,
-    "underline": false,
-    "backgroundColor": "transparent",
-    "bold": false,
-    "italic": false
-  }
-]
-```
+Install Nix, enter `nix develop`, then run `just setup` and `just check`. Run `just package` to build a VSIX. The flake supports x86_64/aarch64 Linux and macOS, including Intel macOS through the pinned Nixpkgs revision.
 
-## Supported Languages
-
-* Ada
-* AL
-* Apex
-* AsciiDoc
-* BrightScript
-* C
-* C#
-* C++
-* ColdFusion
-* Clojure
-* COBOL
-* CoffeeScript
-* CSS
-* Dart
-* Dockerfile
-* Elixir
-* Elm
-* Erlang
-* F#
-* Fortran
-* gdscript
-* GenStat
-* Go
-* GraphQL
-* Groovy
-* Haskell
-* Haxe
-* HiveQL
-* HTML
-* Java
-* JavaScript
-* JavaScript React
-* JSON with comments
-* Julia
-* Kotlin
-* LaTex (inlc. Bibtex/Biblatex)
-* Less
-* Lisp
-* Lua
-* Makefile
-* Markdown
-* Nim
-* MATLAB
-* Objective-C
-* Objective-C++
-* Pascal
-* Perl
-* Perl 6
-* PHP
-* Pig
-* PlantUML
-* PL/SQL
-* PowerShell
-* Puppet
-* Python
-* R
-* Racket
-* Ruby
-* Rust
-* SAS
-* Sass
-* Scala
-* SCSS
-* ShaderLab
-* ShellScript
-* SQL
-* STATA
-* Stylus
-* Svelte
-* Swift
-* Tcl
-* Terraform
-* Twig
-* TypeScript
-* TypeScript React
-* Verilog
-* Visual Basic
-* Vue.js
-* XML
-* YAML
+Dependency upgrades are explicit: `just lock-upgrade` and `just update-nix`. Normal setup uses the committed locks.

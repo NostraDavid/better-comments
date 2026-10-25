@@ -1,0 +1,118 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing GitHub release tag to publish to Marketplace
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  marketplace-access:
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.access.outputs.enabled }}
+    steps:
+      - id: access
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          if [[ -n "$VSCE_PAT" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Marketplace credentials are not configured. Upload the GitHub VSIX through the publisher portal."
+          fi
+
+  release:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # 31.11.3
+      - run: nix develop --command just sync
+      - run: nix develop --command just check
+      - run: nix develop --command just package
+      - name: Publish the VSIX and its changelog entry on GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          version="${RELEASE_TAG#v}"
+          asset="nostradavid-better-comments-$version.vsix"
+          nix develop --command node scripts/release-notes.mjs "$version" > release-notes.md
+          if gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' | grep -Fxq "$asset"; then
+            echo "Keeping the existing release asset unchanged."
+          elif gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "$asset"
+          else
+            gh release create "$RELEASE_TAG" "$asset" --verify-tag --title "$RELEASE_TAG" --notes-file release-notes.md
+          fi
+
+  marketplace:
+    needs: [release, marketplace-access]
+    if: ${{ !cancelled() && needs.marketplace-access.outputs.enabled == 'true' && (needs.release.result == 'success' || github.event_name == 'workflow_dispatch') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - name: Check Marketplace publishing access
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          if [[ -z "$VSCE_PAT" ]]; then
+            echo "::error::Add the VSCE_PAT repository secret. See docs/releasing.md for the one-time setup."
+            exit 1
+          fi
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # 31.11.3
+      - run: nix develop --command just sync
+      - name: Download and check the existing release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$(gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft')" == false ]]
+          version="${RELEASE_TAG#v}"
+          gh release download "$RELEASE_TAG" --pattern "nostradavid-better-comments-$version.vsix"
+          unzip -p "nostradavid-better-comments-$version.vsix" extension/package.json |
+            jq -e --arg version "$version" '.publisher == "nostradavid" and .name == "nostradavid-better-comments" and .version == $version'
+      - name: Publish the same VSIX to Marketplace
+        # shortcut: replace VSCE_PAT with --oidc when Marketplace enables trusted publishing, before 2026-12-01.
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: nix develop --command npm exec -- vsce publish --packagePath "nostradavid-better-comments-${RELEASE_TAG#v}.vsix" --skip-duplicate
+      - name: Verify the published version
+        run: |
+          for attempt in {1..12}; do
+            echo "Checking Marketplace version, attempt $attempt of 12."
+            if nix develop --command npm exec -- vsce show nostradavid.nostradavid-better-comments --json > published-extension.json &&
+              jq -e --arg version "${RELEASE_TAG#v}" 'any(.versions[]?; .version == $version)' published-extension.json; then
+              echo "Marketplace lists $RELEASE_TAG."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Marketplace has not listed $RELEASE_TAG yet. Check validation and rerun this job." >&2
+          exit 1

@@ -1,0 +1,98 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
+import { test } from 'node:test';
+import vm from 'node:vm';
+
+const moduleUrl = new URL('../out/parser.js', import.meta.url);
+const require = createRequire(moduleUrl);
+const source = fs.readFileSync(moduleUrl, 'utf8');
+
+async function decorations(text, languageId = 'python') {
+  const rendered = [];
+  const vscode = {
+    workspace: {
+      getConfiguration: () => ({
+        multilineComments: true,
+        highlightPlainText: false,
+        tags: [{ tag: '!', color: '#ff0000' }],
+      }),
+    },
+    window: { createTextEditorDecorationType: () => ({}) },
+    Range: class {
+      constructor(start, end) {
+        this.start = start;
+        this.end = end;
+      }
+    },
+  };
+  const exports = {};
+  vm.runInNewContext(source, {
+    exports,
+    require: (name) => name === 'vscode' ? vscode : require(name),
+  }, { filename: moduleUrl.pathname });
+  const editor = {
+    document: {
+      languageId,
+      getText: () => text,
+      positionAt: (offset) => {
+        const lines = text.slice(0, offset).split('\n');
+        return { line: lines.length - 1, character: lines.at(-1).length };
+      },
+    },
+    setDecorations: (_style, ranges) => {
+      for (const { range } of ranges) {
+        rendered.push([range.start.line, range.start.character, range.end.character]);
+      }
+    },
+  };
+  const configuration = {
+    GetCommentConfiguration: async () => ({ lineComment: languageId === 'python' ? '#' : '//' }),
+  };
+  const parser = new exports.Parser(configuration);
+  await parser.SetRegex(languageId);
+  parser.FindSingleLineComments(editor);
+  parser.ApplyDecorations(editor);
+  return rendered;
+}
+
+test('Python #! inside a string does not receive a comment decoration', async () => {
+  const text = 'message = "#! this is a string"\n# ! this is a comment';
+  assert.deepEqual(await decorations(text), [[1, 0, 21]]);
+});
+
+test('real Python inline comments still receive decorations', async () => {
+  const text = 'message = "text"  # ! actual comment';
+  assert.deepEqual(await decorations(text), [[0, 18, text.length]]);
+});
+
+test('a string marker does not hide a real comment on the same line', async () => {
+  const text = 'message = "#! string"  # ! actual comment';
+  assert.deepEqual(await decorations(text), [[0, text.lastIndexOf('#'), text.length]]);
+});
+
+for (
+  const [name, value] of [
+    ['single quotes', "value = '#! string'"],
+    ['triple double quotes', 'value = """first\n#! string\nlast"""'],
+    ['triple single quotes', "value = '''first\n#! string\nlast'''"],
+    ['raw strings', 'value = r"\\path\\#! string"'],
+    ['escaped quotes', 'value = "escaped \\" #! string"'],
+    ['f-strings', 'value = f"{42} #! string"'],
+    ['nested f-string quotes', 'value = f"{len("#! string")}"'],
+  ]
+) {
+  test(`Python ${name} keep comment-looking text unstyled`, async () => {
+    const text = `${value}\n# ! real`;
+    assert.deepEqual(await decorations(text), [[value.split('\n').length, 0, 8]]);
+  });
+}
+
+test('Python shebang remains unstyled', async () => {
+  assert.deepEqual(await decorations('#!/usr/bin/env python\n# ! real'), [[1, 0, 8]]);
+});
+
+test('JavaScript comment decoration remains available', async () => {
+  const text = 'const answer = 42; // ! actual comment';
+  assert.deepEqual(await decorations(text, 'javascript'), [[0, 19, text.length]]);
+});
