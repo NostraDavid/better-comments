@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.0.6] - 2026-10-25
+
+- Highlight compact and single-line block comments without coloring code after the closing delimiter.
+- Handle opening-line tags, decorative asterisks and CRLF consistently in ordinary and JSDoc blocks.
+- Apply the multiline setting to JSDoc comments as well. The boundary work follows upstream PR #457 by aarondill, adapted to preserve Python string filtering.
+
 ## [1.0.5] - 2026-10-25
 
 - Use the first longest matching tag consistently in single-line, block and JSDoc comments.

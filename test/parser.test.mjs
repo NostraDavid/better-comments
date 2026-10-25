@@ -57,6 +57,8 @@ async function decorations(text, languageId = 'python', previousLanguages = [], 
         ? { lineComment: '#', blockComment: ['"""', '"""'] }
         : ['shellscript', 'elixir', 'tcl'].includes(language)
         ? { lineComment: '#' }
+        : language === 'html'
+        ? { blockComment: ['<!--', '-->'] }
         : { lineComment: '//', blockComment: ['/*', '*/'] },
   };
   const parser = new exports.Parser(configuration);
@@ -161,4 +163,22 @@ test('single-line and block comments select the first longest matching tag', asy
     assert.equal(ranges.length, 1, text);
     assert.equal(ranges[0][0], color, text);
   }
+});
+
+for (
+  const [language, text, expected] of [
+    ['javascript', '/* ! work */ const next = 1;', [[0, 3, 10]]],
+    ['javascript', '/*! work\n! second\n*/', [[0, 2, 8], [1, 0, 8]]],
+    ['javascript', '/** ! work */ const next = 1;', [[0, 4, 11]]],
+    ['html', '<!-- ! work --> <div>code</div>', [[0, 5, 12]]],
+    ['javascript', '/*\r\n * ! work\r\n */', [[1, 3, 9]]],
+  ]
+) {
+  test(`${language}: block markers bound decorations in ${text}`, async () => {
+    assert.deepEqual(await decorations(text, language), expected);
+  });
+}
+
+test('disabling multiline comments also disables JSDoc decorations', async () => {
+  assert.deepEqual(await decorations('/**\n * ! work\n */', 'javascript', [], { multilineComments: false }), []);
 });
