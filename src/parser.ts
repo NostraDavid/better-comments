@@ -1,6 +1,19 @@
+import { parser as javascriptParser } from '@lezer/javascript';
 import { parser as pythonParser } from '@lezer/python';
 import * as vscode from 'vscode';
 import { Configuration } from './configuration';
+
+interface CommentScan {
+  text: string;
+  ranges?: { from: number; to: number; kind: 'line' | 'block' }[];
+}
+
+const scriptParsers = new Map([
+  ['javascript', javascriptParser],
+  ['javascriptreact', javascriptParser.configure({ dialect: 'jsx' })],
+  ['typescript', javascriptParser.configure({ dialect: 'ts' })],
+  ['typescriptreact', javascriptParser.configure({ dialect: 'ts jsx' })],
+]);
 
 export class Parser {
   private tags: CommentTag[] = [];
@@ -78,29 +91,51 @@ export class Parser {
    * Finds all single line comments delimited by a given delimiter and matching tags specified in package.json
    * @param activeEditor The active text editor containing the code document
    */
-  public FindSingleLineComments(activeEditor: vscode.TextEditor): void {
+  public ScanComments(document: vscode.TextDocument): CommentScan {
+    const text = document.getText();
+    const parser = document.languageId === 'python' ? pythonParser : scriptParsers.get(document.languageId);
+    if (!parser) return { text };
+    const ranges: NonNullable<CommentScan['ranges']> = [];
+    parser.parse(text).iterate({
+      enter(node) {
+        if (node.name === 'Comment' || node.name === 'LineComment') {
+          ranges.push({ from: node.from, to: node.to, kind: 'line' });
+          return false;
+        }
+        if (node.name === 'BlockComment') {
+          ranges.push({ from: node.from, to: node.to, kind: 'block' });
+          return false;
+        }
+        return;
+      },
+    });
+    return { text, ranges };
+  }
+
+  public FindSingleLineComments(
+    activeEditor: vscode.TextEditor,
+    scan = this.ScanComments(activeEditor.document),
+  ): void {
     // If highlight single line comments is off, single line comments are not supported for this language
     if (!this.highlightSingleLineComments) return;
 
-    let text = activeEditor.document.getText();
+    const text = scan.text;
 
     // if it's plain text, we have to do mutliline regex to catch the start of the line with ^
     let regexFlags = (this.isPlainText) ? 'igm' : 'ig';
     let regEx = new RegExp(this.expression, regexFlags);
 
     const matches: RegExpExecArray[] = [];
-    if (activeEditor.document.languageId === 'python') {
-      pythonParser.parse(text).iterate({
-        enter(node) {
-          if (node.name !== 'Comment') return;
-          regEx.lastIndex = 0;
-          const match = regEx.exec(text.slice(node.from, node.to));
-          if (match?.index === 0) {
-            match.index = node.from;
-            matches.push(match);
-          }
-        },
-      });
+    if (scan.ranges) {
+      for (const range of scan.ranges) {
+        if (range.kind !== 'line') continue;
+        regEx.lastIndex = 0;
+        const match = regEx.exec(text.slice(range.from, range.to));
+        if (match?.index === 0) {
+          match.index = range.from;
+          matches.push(match);
+        }
+      }
     } else {
       for (const match of text.matchAll(regEx)) matches.push(match);
     }
@@ -127,33 +162,40 @@ export class Parser {
    * Finds block comments as indicated by start and end delimiter
    * @param activeEditor The active text editor containing the code document
    */
-  public FindBlockComments(activeEditor: vscode.TextEditor): void {
+  public FindBlockComments(activeEditor: vscode.TextEditor, scan = this.ScanComments(activeEditor.document)): void {
     if (!this.highlightMultilineComments) return;
     const blocks = new RegExp(`(${this.blockCommentStart})([\\s\\S]*?)(${this.blockCommentEnd}|$)`, 'g');
-    this.decorateBlocks(activeEditor, blocks, this.highlightJSDoc);
+    this.decorateBlocks(activeEditor, blocks, this.highlightJSDoc, scan);
   }
 
-  public FindJSDocComments(activeEditor: vscode.TextEditor): void {
+  public FindJSDocComments(activeEditor: vscode.TextEditor, scan = this.ScanComments(activeEditor.document)): void {
     if (!this.highlightMultilineComments || !this.highlightJSDoc) return;
-    this.decorateBlocks(activeEditor, /(\/\*\*)([\s\S]*?)(\*\/|$)/g);
+    this.decorateBlocks(activeEditor, /(\/\*\*)([\s\S]*?)(\*\/|$)/g, false, scan);
   }
 
-  private decorateBlocks(activeEditor: vscode.TextEditor, expression: RegExp, skipJSDoc = false): void {
-    const text = activeEditor.document.getText();
+  private decorateBlocks(
+    activeEditor: vscode.TextEditor,
+    expression: RegExp,
+    skipJSDoc: boolean,
+    scan: CommentScan,
+  ): void {
     const marker = new RegExp(`^[ \\t]*(?:\\*[ \\t]*)?(${this.tagPattern()})`, 'i');
-    for (const block of text.matchAll(expression)) {
-      if (skipJSDoc && block[0].startsWith('/**')) continue;
-      const bodyOffset = block.index! + block[1].length;
-      for (const line of block[2].matchAll(/[^\r\n]+/g)) {
-        const match = marker.exec(line[0]);
-        if (!match) continue;
-        const tag = this.tags.find(item => item.tag.toLowerCase() === match[1].toLowerCase());
-        if (!tag) continue;
-        const start = bodyOffset + line.index! + match[0].length - match[1].length;
-        const end = bodyOffset + line.index! + line[0].length;
-        tag.ranges.push({
-          range: new vscode.Range(activeEditor.document.positionAt(start), activeEditor.document.positionAt(end)),
-        });
+    const ranges = scan.ranges?.filter(range => range.kind === 'block') ?? [{ from: 0, to: scan.text.length }];
+    for (const range of ranges) {
+      for (const block of scan.text.slice(range.from, range.to).matchAll(expression)) {
+        if (skipJSDoc && block[0].startsWith('/**')) continue;
+        const bodyOffset = range.from + block.index! + block[1].length;
+        for (const line of block[2].matchAll(/[^\r\n]+/g)) {
+          const match = marker.exec(line[0]);
+          if (!match) continue;
+          const tag = this.tags.find(item => item.tag.toLowerCase() === match[1].toLowerCase());
+          if (!tag) continue;
+          const start = bodyOffset + line.index! + match[0].length - match[1].length;
+          const end = bodyOffset + line.index! + line[0].length;
+          tag.ranges.push({
+            range: new vscode.Range(activeEditor.document.positionAt(start), activeEditor.document.positionAt(end)),
+          });
+        }
       }
     }
   }

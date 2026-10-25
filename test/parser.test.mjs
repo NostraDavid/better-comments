@@ -64,9 +64,10 @@ async function decorations(text, languageId = 'python', previousLanguages = [], 
   const parser = new exports.Parser(configuration);
   for (const language of previousLanguages) await parser.SetRegex(language);
   await parser.SetRegex(languageId);
-  parser.FindSingleLineComments(editor);
-  parser.FindBlockComments(editor);
-  parser.FindJSDocComments(editor);
+  const scan = parser.ScanComments(editor.document);
+  parser.FindSingleLineComments(editor, scan);
+  parser.FindBlockComments(editor, scan);
+  parser.FindJSDocComments(editor, scan);
   parser.ApplyDecorations(editor);
   return rendered;
 }
@@ -181,4 +182,37 @@ for (
 
 test('disabling multiline comments also disables JSDoc decorations', async () => {
   assert.deepEqual(await decorations('/**\n * ! work\n */', 'javascript', [], { multilineComments: false }), []);
+});
+
+for (
+  const [language, text] of [
+    ['javascript', "const url = 'https://!example.org';"],
+    ['javascript', "const value = '/* ! fake */';"],
+    ['javascript', 'const value = `/**\n * ! fake\n */`;'],
+    ['javascript', String.raw`const pattern = /\/\/!fake/;`],
+    ['typescript', 'const value: "//! fake" = "//! fake";'],
+    ['javascriptreact', '<div title="//! fake">//! text</div>'],
+    ['typescriptreact', '<T,>(x:T) => <div title="/* ! fake */">{x}</div>'],
+  ]
+) {
+  test(`${language}: comment-looking syntax in strings stays unstyled: ${text}`, async () => {
+    assert.deepEqual(await decorations(text, language), []);
+  });
+}
+
+for (const language of ['javascript', 'typescript', 'javascriptreact', 'typescriptreact']) {
+  test(`${language}: a string marker cannot hide a real trailing comment`, async () => {
+    const text = 'const url = "https://!fake"; // ! actual';
+    assert.deepEqual(await decorations(text, language), [[0, text.lastIndexOf('//'), text.length]]);
+  });
+}
+
+test('JSX block comments are recognized despite parser recovery nodes', async () => {
+  const text = '<div>{/* ! actual */}</div>';
+  assert.deepEqual(await decorations(text, 'javascriptreact'), [[0, text.indexOf('!'), text.indexOf('*/')]]);
+});
+
+test('comments inside template expressions remain supported', async () => {
+  const text = 'const value = `//! fake ${1 /* ! real */}`;';
+  assert.deepEqual(await decorations(text, 'javascript'), [[0, text.indexOf('! real'), text.indexOf('*/')]]);
 });

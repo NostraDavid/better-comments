@@ -30,9 +30,10 @@ export function activate(context: vscode.ExtensionContext) {
         || editor.document.languageId !== language || !vscode.window.visibleTextEditors.includes(editor)
       ) return;
       if (current.parser.supportedLanguage) {
-        current.parser.FindSingleLineComments(editor);
-        current.parser.FindBlockComments(editor);
-        current.parser.FindJSDocComments(editor);
+        const scan = current.parser.ScanComments(document);
+        current.parser.FindSingleLineComments(editor, scan);
+        current.parser.FindBlockComments(editor, scan);
+        current.parser.FindJSDocComments(editor, scan);
       }
       current.parser.ApplyDecorations(editor);
     }, 100);

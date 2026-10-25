@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.0.7] - 2026-10-25
+
+- Limit JavaScript, TypeScript, JSX and TSX decorations to real line/block comments using a small Lezer grammar shared with the existing Python parser runtime.
+- Protect URLs, strings, templates, regular expressions and JSX text without losing real trailing comments.
+- Parse once per editor update and preserve comment detection while code is incomplete.
+
 ## [1.0.6] - 2026-10-25
 
 - Highlight compact and single-line block comments without coloring code after the closing delimiter.
